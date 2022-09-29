@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>User.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">wordsaway-servlet</a> &gt; <a href="index.source.html" class="el_package">com.revature.wordsaway.models</a> &gt; <span class="el_source">User.java</span></div><h1>User.java</h1><pre class="source lang-java linenums">package com.revature.wordsaway.models;
+
+import com.revature.wordsaway.services.BoardService;
+
+import javax.persistence.*;
+
+@Entity
+@Table(name = &quot;users&quot;)
+public class User {
+    @Id
+    private String username;
+    @Column(name = &quot;password&quot;, nullable = false)
+    private String password;
+    @Column(name = &quot;salt&quot;, nullable = false)
+    private String salt;
+    @Column(name = &quot;email&quot;)
+    private String email;
+    @Column(name = &quot;elo&quot;, nullable = false)
+    private float elo;
+    @Column(name = &quot;games_played&quot;, nullable = false)
+    private int gamesPlayed;
+    @Column(name = &quot;games_won&quot;, nullable = false)
+    private int gamesWon;
+    @Column(name = &quot;is_cpu&quot;, nullable = false)
+    private boolean isCPU;
+
+<span class="nc" id="L27">    protected User(){}</span>
+<span class="fc" id="L28">    public User(String username, String password, String salt, String email, float elo, int gamesPlayed, int gamesWon, boolean isCPU) {</span>
+<span class="fc" id="L29">        this.username = username;</span>
+<span class="fc" id="L30">        this.password = password;</span>
+<span class="fc" id="L31">        this.salt = salt;</span>
+<span class="fc" id="L32">        this.email = email;</span>
+<span class="fc" id="L33">        this.elo = elo;</span>
+<span class="fc" id="L34">        this.gamesPlayed = gamesPlayed;</span>
+<span class="fc" id="L35">        this.gamesWon = gamesWon;</span>
+<span class="fc" id="L36">        this.isCPU = isCPU;</span>
+<span class="fc" id="L37">    }</span>
+
+    public String getUsername() {
+<span class="fc" id="L40">        return username;</span>
+    }
+
+    public String getPassword() {
+<span class="fc" id="L44">        return password;</span>
+    }
+
+    public String getSalt() {
+<span class="fc" id="L48">        return salt;</span>
+    }
+
+    public String getEmail() {
+<span class="fc" id="L52">        return email;</span>
+    }
+
+    public float getELO() {
+<span class="nc" id="L56">        return elo;</span>
+    }
+
+    public void setELO(float elo) {
+<span class="nc" id="L60">        this.elo = elo;</span>
+<span class="nc" id="L61">    }</span>
+
+    public int getGamesPlayed() {
+<span class="nc" id="L64">        return gamesPlayed;</span>
+    }
+
+    public void setGamesPlayed(int gamesPlayed) {
+<span class="nc" id="L68">        this.gamesPlayed = gamesPlayed;</span>
+<span class="nc" id="L69">    }</span>
+
+    public int getGamesWon() {
+<span class="nc" id="L72">        return gamesWon;</span>
+    }
+
+    public void setGamesWon(int gamesWon) {
+<span class="nc" id="L76">        this.gamesWon = gamesWon;</span>
+<span class="nc" id="L77">    }</span>
+
+    public boolean isCPU() {
+<span class="nc" id="L80">        return isCPU;</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if(!(obj instanceof User)) return false;</span>
+<span class="nc" id="L86">        User user = (User) obj;</span>
+<span class="nc" id="L87">        return this.username.equals(user.getUsername());</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L92">        return &quot;User{&quot; +</span>
+                &quot;username='&quot; + username + '\'' +
+                &quot;, email='&quot; + email + '\'' +
+                &quot;, elo=&quot; + elo +
+                &quot;, gamesPlayed=&quot; + gamesPlayed +
+                &quot;, gamesWon=&quot; + gamesWon +
+                &quot;, isCPU=&quot; + isCPU +
+                '}';
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>

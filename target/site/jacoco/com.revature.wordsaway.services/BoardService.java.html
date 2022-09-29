@@ -1,0 +1,411 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BoardService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">wordsaway-servlet</a> &gt; <a href="index.source.html" class="el_package">com.revature.wordsaway.services</a> &gt; <span class="el_source">BoardService.java</span></div><h1>BoardService.java</h1><pre class="source lang-java linenums">package com.revature.wordsaway.services;
+
+import com.revature.wordsaway.dtos.requests.BoardRequest;
+import com.revature.wordsaway.dtos.responses.GameResponse;
+import com.revature.wordsaway.models.Board;
+import com.revature.wordsaway.models.User;
+import com.revature.wordsaway.repositories.BoardRepository;
+import com.revature.wordsaway.utils.customExceptions.InvalidRequestException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.util.*;
+import static com.revature.wordsaway.utils.Constants.BOARD_SIZE;
+import static com.revature.wordsaway.utils.Constants.TOTAL_WORM_LENGTHS;
+
+@Service
+public class BoardService {
+    private static BoardRepository boardRepository;
+
+    @Autowired
+<span class="fc" id="L20">    public BoardService(BoardRepository boardRepository){</span>
+<span class="fc" id="L21">        this.boardRepository = boardRepository;</span>
+<span class="fc" id="L22">    }</span>
+
+    public static Board register(User user, UUID gameID, boolean isActive){
+        //TODO probably validate some things
+<span class="fc" id="L26">        char[] blankArr = new char[BOARD_SIZE*BOARD_SIZE];</span>
+<span class="fc" id="L27">        char[] worms = new char[BOARD_SIZE * BOARD_SIZE];</span>
+<span class="fc" id="L28">        char[] tray = new char[7];</span>
+<span class="fc" id="L29">        Arrays.fill(blankArr, '.');</span>
+<span class="fc" id="L30">        Arrays.fill(worms, '.');</span>
+<span class="fc" id="L31">        setWorms(worms);</span>
+
+<span class="fc" id="L33">        BoardService.getNewTray(tray);</span>
+
+<span class="fc" id="L35">        Board board = new Board(</span>
+<span class="fc" id="L36">                UUID.randomUUID(),</span>
+                user,
+                tray,
+                0,
+                worms,
+                blankArr,
+                gameID,
+                isActive
+        );
+<span class="fc" id="L45">        boardRepository.save(board);</span>
+<span class="fc" id="L46">        return board;</span>
+    }
+
+    public static void update(Board board){
+<span class="fc" id="L50">        boardRepository.updateBoard(board.getId(), board.getFireballs(), board.isActive(), board.getLetters(), board.getTray(), board.getWorms());</span>
+<span class="fc" id="L51">    }</span>
+
+    public static Board getByID(UUID boardID) {
+<span class="fc" id="L54">        Board board = boardRepository.findBoardByID(boardID);</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        if(board == null) throw new InvalidRequestException(&quot;No board with ID &quot; + boardID + &quot; found.&quot;);</span>
+<span class="fc" id="L56">        return board;</span>
+    }
+
+    public static List&lt;Board&gt; getByGameID(UUID gameID) throws InvalidRequestException {
+<span class="fc" id="L60">        List&lt;Board&gt; boards = boardRepository.findBoardByGameID(gameID);</span>
+<span class="pc bpc" id="L61" title="1 of 4 branches missed.">        if(boards == null || boards.size() == 0) throw new InvalidRequestException(&quot;No boards with gameID &quot; + gameID + &quot; found.&quot;);</span>
+<span class="fc" id="L62">        return boards;</span>
+    }
+
+    public static Board getOpposingBoard(Board board) {
+<span class="fc" id="L66">        Board opposingBoard =  boardRepository.findOpposingBoardByIDAndGameID(board.getId(), board.getGameID());</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if(opposingBoard == null) throw new InvalidRequestException(&quot;No boards opposing &quot; + board.getGameID() + &quot; found.&quot;);</span>
+<span class="fc" id="L68">        return opposingBoard;</span>
+    }
+
+    public static GameResponse getGame(UUID boardID) {
+<span class="fc" id="L72">        Board myBoard = getByID(boardID);</span>
+<span class="fc" id="L73">        Board oppBoard = getOpposingBoard(myBoard);</span>
+<span class="fc" id="L74">        char[] letters = myBoard.getLetters();</span>
+<span class="fc" id="L75">        char[] oppLetters = oppBoard.getLetters();</span>
+<span class="fc" id="L76">        char[] worms = myBoard.getWorms();</span>
+<span class="fc" id="L77">        char[] oppWorms = oppBoard.getWorms();</span>
+<span class="fc" id="L78">        boolean[] checked = getChecked(letters);</span>
+<span class="fc" id="L79">        boolean[] oppChecked = getChecked(oppLetters);</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        for (int i = 0; i &lt; BOARD_SIZE * BOARD_SIZE; i++) {</span>
+<span class="pc bpc" id="L81" title="3 of 4 branches missed.">            if (checked[i] &amp;&amp; letters[i] == '.') {</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">                if (oppWorms[i] != '.') letters[i] = '@';</span>
+<span class="nc" id="L83">                else letters[i] = '!';</span>
+<span class="pc bpc" id="L84" title="5 of 6 branches missed.">            } else if (checked[i] &amp;&amp; letters[i] == '*' &amp;&amp; oppWorms[i] == '.') letters[i] = '&amp;';</span>
+<span class="pc bpc" id="L85" title="3 of 4 branches missed.">            else if (checked[i] &amp;&amp; oppWorms[i] == '.') letters[i] = Character.toLowerCase(letters[i]);</span>
+        }
+<span class="fc bfc" id="L87" title="All 2 branches covered.">        for (int i = 0; i &lt; BOARD_SIZE * BOARD_SIZE; i++) {</span>
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">            if (oppChecked[i]) {</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">                if (worms[i] != '.') {</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                    if (oppLetters[i] == '*') worms[i] = '*';</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">                    else if (oppLetters[i] == '.') worms[i] = '@';</span>
+<span class="nc" id="L92">                    else worms[i] = oppLetters[i];</span>
+                } else {
+<span class="nc bnc" id="L94" title="All 2 branches missed.">                    if (oppLetters[i] == '*') worms[i] = '&amp;';</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">                    else if (oppLetters[i] == '.') worms[i] = '!';</span>
+<span class="nc" id="L96">                    else worms[i] = Character.toLowerCase(oppLetters[i]);</span>
+                }
+            }
+        }
+<span class="fc" id="L100">        String winner = null;</span>
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">        if(gameOver(myBoard.getId())) winner = myBoard.getUser().getUsername();</span>
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">        if(gameOver(oppBoard.getId())) winner = oppBoard.getUser().getUsername();</span>
+<span class="fc" id="L103">        return new GameResponse(</span>
+                letters,
+                worms,
+<span class="fc" id="L106">                myBoard.getTray(),</span>
+<span class="fc" id="L107">                myBoard.getFireballs(),</span>
+<span class="fc" id="L108">                myBoard.isActive(),</span>
+<span class="fc" id="L109">                oppBoard.getUser().getUsername(),</span>
+                winner
+        );
+    }
+
+    public static void setWorms(char[] worms) {
+        //TODO convert worm symbols into heads:→←↑↓ middles:-| tails:↦↤↥↧
+<span class="fc" id="L116">        Random rand = new Random(System.currentTimeMillis());</span>
+<span class="fc" id="L117">        char[] wormLetter = new char[] { '1', '2', '3', '4', '5' };</span>
+<span class="fc" id="L118">        int[] wormArr = new int[] { 5, 4, 3, 3, 2 };</span>
+        boolean col, flag;
+        int start, curr, end, increment;
+
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        for (int i = 0; i &lt; wormArr.length;) {</span>
+            // Get a direction for the ship
+<span class="fc bfc" id="L124" title="All 2 branches covered.">            col = rand.nextInt(BOARD_SIZE + BOARD_SIZE) % 2 == 0;</span>
+            // Set the increment
+<span class="fc bfc" id="L126" title="All 2 branches covered.">            increment = col ? BOARD_SIZE : 1;</span>
+            // Get start and end of worm
+<span class="fc" id="L128">            curr = start = rand.nextInt(BOARD_SIZE * BOARD_SIZE);</span>
+<span class="fc" id="L129">            end = start + wormArr[i] * increment;</span>
+
+            // Check if you can get to end
+<span class="fc bfc" id="L132" title="All 6 branches covered.">            if (col ? end &lt; BOARD_SIZE * BOARD_SIZE : start / BOARD_SIZE == end / BOARD_SIZE){</span>
+<span class="fc" id="L133">                flag = true;</span>
+<span class="fc bfc" id="L134" title="All 6 branches covered.">                while (flag ? curr &lt; end : curr &gt;= start) {</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">                    if (worms[curr] == '.')</span>
+<span class="fc" id="L136">                        worms[curr] = wormLetter[i];</span>
+                    else {
+<span class="fc bfc" id="L138" title="All 2 branches covered.">                        if (!flag) worms[curr] = '.';</span>
+<span class="fc" id="L139">                        flag = false;</span>
+                    }
+<span class="fc bfc" id="L141" title="All 2 branches covered.">                    curr += flag ? increment : increment * - 1;</span>
+                }
+<span class="fc bfc" id="L143" title="All 2 branches covered.">                if (flag) i++;</span>
+            }
+        }
+<span class="fc" id="L146">    }</span>
+
+    public static void getNewTray(char[] tray){
+<span class="fc bfc" id="L149" title="All 2 branches covered.">        for (int i = 0; i &lt; tray.length; i++)</span>
+<span class="fc" id="L150">            tray[i] = getRandomChar();</span>
+<span class="fc" id="L151">    }</span>
+
+    private static char getRandomChar() {
+<span class="fc" id="L154">        double[] weights = new double[]{0.03d, 0.05d, 0.08d, 0.12d, 0.16d, 0.18d, 0.18d, 0.18d};</span>
+<span class="fc" id="L155">        String[] charSets = new String[]{&quot;G&quot;, &quot;JKQXZ&quot;, &quot;O&quot;, &quot;E&quot;, &quot;DLSU&quot;, &quot;AI&quot;, &quot;NRT&quot;, &quot;BCFHMPVWY&quot;};</span>
+<span class="fc" id="L156">        int counter = 0;</span>
+<span class="fc bfc" id="L157" title="All 2 branches covered.">        for (double r = Math.random(); counter &lt; weights.length - 1; counter++) {</span>
+<span class="fc" id="L158">            r -= weights[counter];</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">            if (r &lt;= 0.0) break;</span>
+        }
+<span class="fc" id="L161">        Random rand = new Random();</span>
+<span class="fc" id="L162">        return charSets[counter].charAt(rand.nextInt(100) % charSets[counter].length());</span>
+    }
+
+    public static void makeMove(BoardRequest request, Board board){
+<span class="fc" id="L166">        Board opposingBoard = getOpposingBoard(board);</span>
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        if (request.isReplacedTray()) getNewTray(board.getTray());</span>
+        else {
+<span class="fc" id="L169">            board = validateMove(request);</span>
+<span class="fc" id="L170">            char[] newLetters = board.getLetters();</span>
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">            for (int i = 0; i &lt; BOARD_SIZE * BOARD_SIZE; i++) {</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">                if (request.getLayout()[i] != '.') newLetters[i] = request.getLayout()[i];</span>
+            }
+<span class="nc" id="L174">            board.setLetters(newLetters);</span>
+        }
+<span class="nc" id="L176">        board.toggleActive();</span>
+<span class="nc" id="L177">        opposingBoard.toggleActive();</span>
+<span class="nc" id="L178">        update(board);</span>
+<span class="nc" id="L179">        update(opposingBoard);</span>
+<span class="nc" id="L180">    }</span>
+
+    public static Board validateMove(BoardRequest request) throws InvalidRequestException {
+        //TODO rewrite this less dumn now that move only is being sent.
+<span class="fc" id="L184">        int fireballs = 0;</span>
+<span class="fc" id="L185">        Board oldBoard = getByID(request.getBoardID());</span>
+<span class="fc" id="L186">        char[] oldLetters = oldBoard.getLetters();</span>
+<span class="fc" id="L187">        char[] newLetters = new char[BOARD_SIZE*BOARD_SIZE];</span>
+<span class="fc bfc" id="L188" title="All 2 branches covered.">        for(int i = 0; i &lt; BOARD_SIZE*BOARD_SIZE; i++){</span>
+<span class="fc bfc" id="L189" title="All 2 branches covered.">            if(request.getLayout()[i] != '.') newLetters[i] = request.getLayout()[i];</span>
+<span class="fc" id="L190">            else newLetters[i] = oldLetters[i];</span>
+        }
+<span class="fc" id="L192">        List&lt;ChangeSpot&gt; changeSpots = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L193">        boolean checkRow = false, checkColumn = false, asterisk = false;</span>
+<span class="fc bfc" id="L194" title="All 2 branches covered.">        loop: for(int i = 0; i &lt; oldLetters.length; i++){</span>
+<span class="fc bfc" id="L195" title="All 2 branches covered.">            if(oldLetters[i] != newLetters[i]){</span>
+<span class="fc" id="L196">                ChangeSpot spot = new ChangeSpot(i);</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">                for(ChangeSpot existingSpot : changeSpots){</span>
+<span class="pc bpc" id="L198" title="1 of 2 branches missed.">                    if(existingSpot.equals(spot)) continue loop;</span>
+<span class="fc" id="L199">                }</span>
+<span class="fc bfc" id="L200" title="All 2 branches covered.">                if(asterisk) throw new InvalidRequestException(&quot;Invalid Move. Fireball may only be placed alone.&quot;);</span>
+<span class="fc bfc" id="L201" title="All 4 branches covered.">                else if(newLetters[i] == '*' &amp;&amp; changeSpots.size() == 0) asterisk = true;</span>
+<span class="fc bfc" id="L202" title="All 2 branches covered.">                else if(newLetters[i] == '*') throw new InvalidRequestException(&quot;Invalid Move. Fireball may only be placed alone.&quot;);</span>
+<span class="fc" id="L203">                changeSpots.add(spot);</span>
+<span class="fc bfc" id="L204" title="All 2 branches covered.">                if (changeSpots.size() &gt; 2) {</span>
+<span class="pc bpc" id="L205" title="1 of 4 branches missed.">                    if(checkRow &amp;&amp; changeSpots.get(changeSpots.size() - 1).row != changeSpots.get(0).row)</span>
+<span class="nc" id="L206">                        throw new InvalidRequestException(&quot;Invalid Move. Only one word may be placed at a time.&quot;);</span>
+<span class="pc bpc" id="L207" title="1 of 4 branches missed.">                    if(checkColumn &amp;&amp; changeSpots.get(changeSpots.size() - 1).column != changeSpots.get(0).column)</span>
+<span class="nc" id="L208">                        throw new InvalidRequestException(&quot;Invalid Move. Only one word may be placed at a time.&quot;);</span>
+<span class="fc bfc" id="L209" title="All 2 branches covered.">                } else if(changeSpots.size() == 2){</span>
+<span class="fc bfc" id="L210" title="All 2 branches covered.">                    checkRow = changeSpots.get(0).row == changeSpots.get(1).row;</span>
+<span class="fc bfc" id="L211" title="All 2 branches covered.">                    checkColumn = changeSpots.get(0).column == changeSpots.get(1).column;</span>
+<span class="fc bfc" id="L212" title="All 4 branches covered.">                    if(!checkRow &amp;&amp; !checkColumn)</span>
+<span class="fc" id="L213">                        throw new InvalidRequestException(&quot;Invalid Move. All tiles must be placed in either the same row or same column.&quot;);</span>
+                }
+            }
+        }
+<span class="fc bfc" id="L217" title="All 2 branches covered.">        if (asterisk) { oldBoard.addFireballs(-1); return oldBoard; }</span>
+
+<span class="fc" id="L219">        StringBuilder tray = new StringBuilder(String.valueOf(oldBoard.getTray()));</span>
+        int idx;
+<span class="fc bfc" id="L221" title="All 2 branches covered.">        for(ChangeSpot spot : changeSpots){</span>
+<span class="fc" id="L222">            char c = newLetters[spot.getI()];</span>
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">            if(c != '*') {</span>
+<span class="pc bpc" id="L224" title="1 of 2 branches missed.">                if ((idx = tray.indexOf(String.valueOf(c))) != -1) tray.setCharAt(idx, getRandomChar());</span>
+<span class="nc" id="L225">                else throw new InvalidRequestException(&quot;Invalid Move. Only tiles from your tray may be used.&quot;);</span>
+            }
+<span class="fc" id="L227">        }</span>
+<span class="fc bfc" id="L228" title="All 2 branches covered.">        if(changeSpots.size() == 0) throw new InvalidRequestException(&quot;Invalid Move. Must be some change in boards.&quot;);</span>
+<span class="fc bfc" id="L229" title="All 2 branches covered.">        if(changeSpots.size() == 1){</span>
+<span class="fc" id="L230">            char[] word1 = findConnectedWord(newLetters, changeSpots.get(0), true, false);</span>
+<span class="fc" id="L231">            fireballs += word1.length - 1;</span>
+<span class="fc" id="L232">            char[] word2 = findConnectedWord(newLetters, changeSpots.get(0), false, true);</span>
+<span class="fc" id="L233">            fireballs += word2.length - 1;</span>
+<span class="pc bpc" id="L234" title="1 of 4 branches missed.">            if (!isWord(word1) &amp;&amp; !isWord(word2))</span>
+<span class="nc" id="L235">                throw new InvalidRequestException(&quot;Invalid Move. Placed tiles do not form valid word.&quot;);</span>
+<span class="fc" id="L236">            oldBoard.addFireballs(fireballs);</span>
+<span class="fc" id="L237">            return oldBoard;</span>
+        }
+<span class="fc bfc" id="L239" title="All 2 branches covered.">        if(checkRow){</span>
+<span class="fc bfc" id="L240" title="All 2 branches covered.">            for(int i = changeSpots.get(0).getI() + 1; i &lt;= changeSpots.get(changeSpots.size() - 1).getI(); i++){</span>
+<span class="pc bpc" id="L241" title="1 of 4 branches missed.">                if(newLetters[i] == '.' || newLetters[i] == '*') throw new InvalidRequestException(&quot;Invalid Move. Only one word may be placed at a time.&quot;);</span>
+            }
+<span class="pc bpc" id="L243" title="1 of 2 branches missed.">        } else if (checkColumn) {</span>
+<span class="fc bfc" id="L244" title="All 2 branches covered.">            for(int i = changeSpots.get(0).getI() + BOARD_SIZE; i &lt;= changeSpots.get(changeSpots.size() - 1).getI(); i += BOARD_SIZE){</span>
+<span class="pc bpc" id="L245" title="1 of 4 branches missed.">                if(newLetters[i] == '.' || newLetters[i] == '*') throw new InvalidRequestException(&quot;Invalid Move. Only one word may be placed at a time.&quot;);</span>
+            }
+        }
+<span class="fc" id="L248">        char[] word = findConnectedWord(newLetters, changeSpots.get(0), checkRow, checkColumn);</span>
+<span class="fc" id="L249">        fireballs += word.length - changeSpots.size();</span>
+<span class="pc bpc" id="L250" title="1 of 2 branches missed.">        if(!isWord(word))</span>
+<span class="nc" id="L251">            throw new InvalidRequestException(&quot;Invalid Move. Placed tiles do not form valid word.&quot;);</span>
+<span class="fc bfc" id="L252" title="All 2 branches covered.">        for(ChangeSpot spot : changeSpots){</span>
+<span class="fc bfc" id="L253" title="All 4 branches covered.">            word = findConnectedWord(newLetters, spot, !checkRow, !checkColumn);</span>
+<span class="fc" id="L254">            fireballs += word.length - 1;</span>
+<span class="pc bpc" id="L255" title="3 of 4 branches missed.">            if(word.length &gt; 1 &amp;&amp; !isWord(word))</span>
+<span class="nc" id="L256">                throw new InvalidRequestException(&quot;Invalid Move. Placed tiles do not form valid word.&quot;);</span>
+<span class="fc" id="L257">        }</span>
+
+<span class="fc" id="L259">        oldBoard.addFireballs(fireballs);</span>
+<span class="fc" id="L260">        oldBoard.setTray(tray.toString().toCharArray());</span>
+<span class="fc" id="L261">        return oldBoard;</span>
+    }
+
+    private static class ChangeSpot{
+        int row;
+        int column;
+<span class="fc" id="L267">        ChangeSpot(int i){</span>
+<span class="fc" id="L268">            this.row = i / BOARD_SIZE;</span>
+<span class="fc" id="L269">            this.column = i % BOARD_SIZE;</span>
+<span class="fc" id="L270">        }</span>
+        int getI(){
+<span class="fc" id="L272">            return row * BOARD_SIZE + column;</span>
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+<span class="pc bpc" id="L277" title="1 of 2 branches missed.">            if(!(obj instanceof ChangeSpot)) return false;</span>
+<span class="fc" id="L278">            ChangeSpot spot = (ChangeSpot) obj;</span>
+<span class="pc bpc" id="L279" title="1 of 4 branches missed.">            return spot.row == row &amp;&amp; spot.column == column;</span>
+        }
+        /*@Override
+        public String toString(){
+            return &quot;(&quot; + row + &quot;,&quot; + column + &quot;)&quot;;
+         }*/
+    }
+
+    private static char[] findConnectedWord(char[] letters, ChangeSpot spot, boolean checkRow, boolean checkColumn){
+<span class="pc bpc" id="L288" title="1 of 4 branches missed.">        if(checkRow &amp;&amp; checkColumn) throw new IllegalArgumentException(&quot;Both checkRow and checkColumn may not be true.&quot;);</span>
+<span class="fc bfc" id="L289" title="All 2 branches covered.">        if(checkRow){</span>
+<span class="fc" id="L290">            int start = spot.getI();</span>
+<span class="fc" id="L291">            int end = spot.getI();</span>
+<span class="fc" id="L292">            int rowStart = spot.row * BOARD_SIZE;</span>
+<span class="fc bfc" id="L293" title="All 6 branches covered.">            for(int i = start - 1; i &gt;= rowStart &amp;&amp; letters[i] != '.' &amp;&amp; letters[i] != '*'; i--){</span>
+<span class="fc" id="L294">                start = i;</span>
+            }
+<span class="fc bfc" id="L296" title="All 6 branches covered.">            for(int i = end + 1; i &lt; rowStart + BOARD_SIZE &amp;&amp; letters[i] != '.' &amp;&amp; letters[i] != '*'; i++){</span>
+<span class="fc" id="L297">                end = i;</span>
+            }
+<span class="fc" id="L299">            char[] word = new char[end - start + 1];</span>
+<span class="fc bfc" id="L300" title="All 2 branches covered.">            for(int i = 0; i &lt; word.length; i++){</span>
+<span class="fc" id="L301">                word[i] = letters[start + i];</span>
+            }
+<span class="fc" id="L303">            return word;</span>
+        }
+<span class="pc bpc" id="L305" title="1 of 2 branches missed.">        if(checkColumn){</span>
+<span class="fc" id="L306">            int start = spot.getI();</span>
+<span class="fc" id="L307">            int end = spot.getI();</span>
+<span class="fc bfc" id="L308" title="All 6 branches covered.">            for(int i = start - BOARD_SIZE; i &gt;= 0 &amp;&amp; letters[i] != '.' &amp;&amp; letters[i] != '*'; i -= BOARD_SIZE){</span>
+<span class="fc" id="L309">                start = i;</span>
+            }
+<span class="fc bfc" id="L311" title="All 6 branches covered.">            for(int i = end + BOARD_SIZE; i &lt; BOARD_SIZE * BOARD_SIZE &amp;&amp; letters[i] != '.' &amp;&amp; letters[i] != '*'; i += BOARD_SIZE){</span>
+<span class="fc" id="L312">                end = i;</span>
+            }
+<span class="fc" id="L314">            char[] word = new char[(end - start) / BOARD_SIZE + 1];</span>
+<span class="fc bfc" id="L315" title="All 2 branches covered.">            for(int i = 0; i &lt; word.length; i++){</span>
+<span class="fc" id="L316">                word[i] = letters[start + (i * BOARD_SIZE)];</span>
+            }
+<span class="fc" id="L318">            return word;</span>
+        }
+<span class="nc" id="L320">        throw new IllegalArgumentException(&quot;Either checkRow or checkColumn must be true.&quot;);</span>
+    }
+
+    private static boolean isWord(char[] rowOrColumn){
+<span class="fc" id="L324">        String word = new String(rowOrColumn);</span>
+<span class="pc bpc" id="L325" title="1 of 2 branches missed.">        if(!word.matches(&quot;^[A-Z]+$&quot;)) throw new InvalidRequestException(&quot;Invalid Move. Illegal characters placed on board.&quot;);</span>
+<span class="fc" id="L326">        return AnagramService.isWord(word.toLowerCase());</span>
+    }
+
+    public static boolean[] getChecked(char[] letters){
+<span class="fc" id="L330">        boolean[] hits = new boolean[BOARD_SIZE * BOARD_SIZE];</span>
+<span class="fc bfc" id="L331" title="All 2 branches covered.">        for (int i = 0; i &lt; hits.length; i++) {</span>
+<span class="fc bfc" id="L332" title="All 4 branches covered.">            switch (letters[i]) {</span>
+                case 'A': case 'B': case 'C':
+                case 'D': case 'E': case 'G':
+                case 'H': case 'I': case 'L':
+                case 'M': case 'N': case 'O':
+                case 'P': case 'S': case 'T':
+                case 'R': case 'U': case '*':
+<span class="fc" id="L339">                    hits[i] = true;</span>
+<span class="fc" id="L340">                    break;</span>
+                case 'F': case 'K': case 'V':
+                case 'Y': case 'W':
+<span class="fc" id="L343">                    hits[i] = true;</span>
+<span class="fc" id="L344">                    makeAdjacentTrue(hits, i);</span>
+<span class="fc" id="L345">                    break;</span>
+                case 'J': case 'Q': case 'X':
+                case 'Z':
+<span class="fc" id="L348">                    hits[i] = true;</span>
+<span class="fc" id="L349">                    int startingRow = i / BOARD_SIZE;</span>
+<span class="pc bpc" id="L350" title="2 of 4 branches missed.">                    for (int j = i; j &gt;= 0 &amp;&amp; j / BOARD_SIZE == startingRow; j--) {</span>
+<span class="pc bpc" id="L351" title="1 of 4 branches missed.">                        if(letters[j] != '.' &amp;&amp; letters[j] != '*'){</span>
+<span class="fc" id="L352">                            makeAdjacentTrue(hits, j);</span>
+                        }else break;
+                    }
+<span class="pc bpc" id="L355" title="2 of 4 branches missed.">                    for (int j = i; j &lt; BOARD_SIZE*BOARD_SIZE &amp;&amp; j / BOARD_SIZE == startingRow; j++) {</span>
+<span class="pc bpc" id="L356" title="1 of 4 branches missed.">                        if(letters[j] != '.' &amp;&amp; letters[j] != '*'){</span>
+<span class="fc" id="L357">                            makeAdjacentTrue(hits, j);</span>
+                        }else break;
+                    }
+<span class="fc" id="L360">                    int startingColumn = i % BOARD_SIZE;</span>
+<span class="pc bpc" id="L361" title="2 of 4 branches missed.">                    for (int j = i; j &gt;= 0 &amp;&amp; j % BOARD_SIZE == startingColumn; j-= BOARD_SIZE) {</span>
+<span class="pc bpc" id="L362" title="1 of 4 branches missed.">                        if(letters[j] != '.' &amp;&amp; letters[j] != '*'){</span>
+<span class="fc" id="L363">                            makeAdjacentTrue(hits, j);</span>
+                        }else break;
+                    }
+<span class="pc bpc" id="L366" title="2 of 4 branches missed.">                    for (int j = i + BOARD_SIZE; j &lt; BOARD_SIZE*BOARD_SIZE &amp;&amp; j % BOARD_SIZE == startingColumn; j += BOARD_SIZE) {</span>
+<span class="pc bpc" id="L367" title="3 of 4 branches missed.">                        if(letters[j] != '.' &amp;&amp; letters[j] != '*'){</span>
+<span class="nc" id="L368">                            makeAdjacentTrue(hits, j);</span>
+                        }else break;
+                    }
+                    break;
+            }
+        }
+<span class="fc" id="L374">        return hits;</span>
+    }
+
+    private static void makeAdjacentTrue(boolean[] hits, int i){
+<span class="pc bpc" id="L378" title="2 of 4 branches missed.">        if (i - 1 &gt;= 0 &amp;&amp; i / BOARD_SIZE == (i - 1) /BOARD_SIZE) hits[i - 1] = true;</span>
+<span class="pc bpc" id="L379" title="2 of 4 branches missed.">        if (i + 1 &lt; BOARD_SIZE*BOARD_SIZE &amp;&amp; i / BOARD_SIZE == (i + 1) /BOARD_SIZE) hits[i + 1] = true;</span>
+<span class="pc bpc" id="L380" title="1 of 2 branches missed.">        if (i - BOARD_SIZE &gt;= 0) hits[i - BOARD_SIZE] = true;</span>
+<span class="pc bpc" id="L381" title="1 of 2 branches missed.">        if (i + BOARD_SIZE &lt; BOARD_SIZE * BOARD_SIZE) hits[i + BOARD_SIZE] = true;</span>
+<span class="fc" id="L382">    }</span>
+
+    public static boolean gameOver(UUID id){
+<span class="fc" id="L385">        int hitCounter = 0;</span>
+<span class="fc" id="L386">        Board board = getByID(id);</span>
+<span class="fc" id="L387">        char[] worms = getOpposingBoard(board).getWorms();</span>
+<span class="fc" id="L388">        boolean[] checked = getChecked(board.getLetters());</span>
+
+<span class="fc bfc" id="L390" title="All 2 branches covered.">        for (int i = 0; i &lt; worms.length; i++) {</span>
+<span class="fc bfc" id="L391" title="All 4 branches covered.">            if (checked[i] &amp;&amp; worms[i] != '.')</span>
+<span class="fc" id="L392">                hitCounter++;</span>
+        }
+<span class="pc bpc" id="L394" title="1 of 2 branches missed.">        return hitCounter &gt;= TOTAL_WORM_LENGTHS;</span>
+    }
+
+    public static float calculateELO(float myELO, float oppELO, boolean isWinner){
+        //From https://metinmediamath.wordpress.com/2013/11/27/how-to-calculate-the-elo-rating-including-example/
+<span class="fc" id="L399">        double myMod = Math.pow(10, (myELO/400));</span>
+<span class="fc" id="L400">        double oppMod = Math.pow(10, (oppELO/400));</span>
+<span class="fc" id="L401">        myMod /= myMod + oppMod;</span>
+<span class="fc" id="L402">        int k = 32; //TODO do better K-Factor calculation</span>
+<span class="fc bfc" id="L403" title="All 2 branches covered.">        return (float) (myELO + k * ((isWinner ? 1 : 0) - myMod));</span>
+    }
+
+    public static void endGame(UUID gameID) {
+<span class="fc" id="L407">        List&lt;Board&gt; boards = boardRepository.findBoardByGameID(gameID);</span>
+<span class="fc" id="L408">        boardRepository.deleteAll(boards);</span>
+<span class="fc" id="L409">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>
