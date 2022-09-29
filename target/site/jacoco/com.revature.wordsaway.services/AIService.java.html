@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AIService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">wordsaway-servlet</a> &gt; <a href="index.source.html" class="el_package">com.revature.wordsaway.services</a> &gt; <span class="el_source">AIService.java</span></div><h1>AIService.java</h1><pre class="source lang-java linenums">package com.revature.wordsaway.services;
+
+import com.revature.wordsaway.models.Board;
+import org.springframework.stereotype.Service;
+import java.util.*;
+
+import static com.revature.wordsaway.utils.Constants.BOARD_SIZE;
+
+// todo run bot while user is making move to negate wait time on bot
+@Service
+<span class="fc" id="L11">public class AIService {</span>
+    private static List&lt;WordAndLocation&gt; finalList;
+    private static List&lt;String&gt; validWords;
+    private static String existingLetters;
+    private static Board board;
+    private static char[] letters;
+    private static char[] tray;
+<span class="fc" id="L18">    private static final Random rand = new Random(System.currentTimeMillis());</span>
+
+    public void setRandomSeed(int seed){
+<span class="fc" id="L21">        rand.setSeed(seed);</span>
+<span class="fc" id="L22">    }</span>
+
+    private static class WordAndLocation{
+        private int location;
+        private String word;
+    }
+
+    public static Board start(long startTime, Board board){ // todo add level for bots
+        // If bot has taken longer than 20 seconds leave
+<span class="pc bpc" id="L31" title="1 of 2 branches missed.">        if (System.currentTimeMillis() - startTime &gt; 20000) return board;</span>
+<span class="fc" id="L32">        finalList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L33">        AIService.board = board;</span>
+<span class="fc" id="L34">        letters = board.getLetters();</span>
+<span class="fc" id="L35">        tray = board.getTray();</span>
+        int increment;
+
+        // todo add other bots here
+        // If increment is -1 means a fireball was cast
+<span class="fc bfc" id="L40" title="All 2 branches covered.">        if ((increment = easyBot()) != -1) {</span>
+            // Check if list is empty
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">            if (finalList.isEmpty()) {</span>
+<span class="nc" id="L43">                Board newBoard = start(startTime, board.clone());</span>
+
+<span class="nc bnc" id="L45" title="All 4 branches missed.">                if (Arrays.equals(newBoard.getLetters(), board.getLetters()) &amp;&amp; board.getFireballs() &gt; 0) {</span>
+<span class="nc" id="L46">                    shootFireBall();</span>
+<span class="nc" id="L47">                    return board;</span>
+                }
+<span class="nc" id="L49">                return newBoard;</span>
+            }
+            // Get random answer and play it
+<span class="fc" id="L52">            WordAndLocation wl = finalList.get(rand.nextInt(finalList.size()));</span>
+<span class="fc" id="L53">            finalizeMove(wl, increment);</span>
+        }
+<span class="fc" id="L55">        return board;</span>
+    }
+
+    private static int easyBot(){
+        // Get a random colum or row
+        int start;
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">        boolean col = (start = rand.nextInt(BOARD_SIZE + BOARD_SIZE)) % 2 == 0;</span>
+<span class="fc" id="L62">        start /= 2;</span>
+
+<span class="pc bpc" id="L64" title="1 of 4 branches missed.">        if (board.getFireballs() &gt; 0 &amp;&amp; rand.nextInt(100) % 20 == 0) {</span>
+<span class="fc" id="L65">            shootFireBall();</span>
+<span class="fc" id="L66">            return -1;</span>
+        }
+
+        // Establish increment variable
+        int increment;
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">        if (col) increment = BOARD_SIZE;</span>
+<span class="fc" id="L72">        else { increment = 1; start *= BOARD_SIZE; }</span>
+
+<span class="fc" id="L74">        int curr = start;</span>
+<span class="fc" id="L75">        int counter = 0;</span>
+        // Get a final list of all moves in give row or col
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        while (counter &lt; BOARD_SIZE - 2) {</span>
+<span class="fc" id="L78">            existingLetters = getExistingLetters(curr, increment);</span>
+<span class="fc" id="L79">            validWords = getWordList(existingLetters, curr, increment);</span>
+<span class="fc" id="L80">            finalList.addAll(getFinalWordListAndLocation(validWords, curr, increment));</span>
+
+<span class="pc bpc" id="L82" title="2 of 6 branches missed.">            while (isLoop(col, start, curr) &amp;&amp; isLetter(curr) &amp;&amp; letters[curr] != '*'){</span>
+<span class="fc" id="L83">                curr += increment;</span>
+<span class="fc" id="L84">                counter++;</span>
+            }
+<span class="fc" id="L86">            curr += increment;</span>
+<span class="fc" id="L87">            counter++;</span>
+        }
+<span class="fc" id="L89">        return increment;</span>
+    }
+
+    private static String getExistingLetters(int start, int increment){
+<span class="fc" id="L93">        StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L94">        StringBuilder spacer = new StringBuilder();</span>
+
+        // Get the beginning of the loop
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">        int spacerCounter = 0, counter = increment == BOARD_SIZE ? start / BOARD_SIZE : start % BOARD_SIZE;</span>
+
+        // Loop until end of colum or row
+<span class="fc bfc" id="L100" title="All 4 branches covered.">        for (int i = start; spacerCounter &lt; tray.length &amp;&amp; counter &lt; BOARD_SIZE; i += increment){</span>
+            // Check if we are at a '.'
+<span class="pc bpc" id="L102" title="1 of 4 branches missed.">            if (isLetter(i) || letters[i] == '*') {</span>
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">                if (letters[i] != '*') {</span>
+<span class="fc" id="L104">                    sb.append(spacer.append(letters[i]));</span>
+<span class="fc" id="L105">                    spacer.delete(0, spacer.length());</span>
+                } else break;
+            }
+            // If there is a value in sb then add a spacer to spacer
+            else {
+<span class="fc" id="L110">                spacer.append(&quot;_&quot;);</span>
+<span class="fc" id="L111">                spacerCounter++;</span>
+            }
+<span class="fc" id="L113">            counter++;</span>
+        }
+<span class="fc" id="L115">        return sb.toString();</span>
+    }
+
+    private static List&lt;String&gt; getWordList(String pattern, int start, int increment) {
+<span class="fc" id="L119">        List&lt;String&gt; words = new ArrayList&lt;&gt;();</span>
+        List&lt;String&gt; incomingWords;
+
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">        int rowOrCol = increment == BOARD_SIZE ? start / BOARD_SIZE : start % BOARD_SIZE,</span>
+<span class="fc" id="L123">            maxWordLength = tray.length - pattern.replaceAll(&quot;[A-Z]&quot;, &quot;&quot;).length() + pattern.length(),</span>
+<span class="fc" id="L124">            wordLength = Math.min(maxWordLength, BOARD_SIZE - rowOrCol);</span>
+
+        // Loop for all possible words in that given space
+        do {
+<span class="fc" id="L128">            incomingWords = AnagramService.getAllList(String.valueOf(tray), pattern, wordLength);</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">            if (incomingWords != null)</span>
+<span class="fc" id="L130">                words.addAll(incomingWords);</span>
+
+<span class="fc bfc" id="L132" title="All 2 branches covered.">            if (pattern.lastIndexOf(&quot;_&quot;) == -1) break;</span>
+<span class="fc" id="L133">            pattern = pattern.substring(0, pattern.lastIndexOf(&quot;_&quot;));</span>
+<span class="fc" id="L134">            wordLength = pattern.length();</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">        } while (pattern.length() &gt; 2);</span>
+
+<span class="fc" id="L137">        return words;</span>
+    }
+
+    private static List&lt;WordAndLocation&gt; getFinalWordListAndLocation(List&lt;String&gt; words, int start, int increment){
+<span class="fc" id="L141">        List&lt;WordAndLocation&gt; list = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L142">        StringBuilder sb = new StringBuilder();</span>
+        WordAndLocation wl;
+        int index;
+        char[] c;
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">        boolean col = increment == BOARD_SIZE;</span>
+        // Switch increment for validity
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">        int newIncrement = col ? 1 : BOARD_SIZE;</span>
+
+        // Loop for each word
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        for (String word : words){</span>
+            // Index for each char in word
+<span class="fc" id="L153">            index = 0;</span>
+<span class="fc" id="L154">            c = word.toCharArray();</span>
+            exit:{
+                // Loop to validate word
+<span class="fc bfc" id="L157" title="All 2 branches covered.">                for (int j = start; index &lt; word.length(); j += increment){</span>
+                    // Clear sb
+<span class="fc" id="L159">                    sb.delete(0, sb.length());</span>
+                    // Check if letter fits in current location
+<span class="pc bpc" id="L161" title="1 of 6 branches missed.">                    if (letters[j] == '*' || (isLetter(j) &amp;&amp; letters[j] != c[index])) break exit;</span>
+
+                    // Letters in the neg direction
+<span class="pc bpc" id="L164" title="3 of 8 branches missed.">                    for (int cw = j - newIncrement; cw &gt;= 0 &amp;&amp; isLoop(!col, j, cw) &amp;&amp; isLetter(cw); cw -= newIncrement)</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">                        sb.insert(0, sb.length() != 0 ? letters[cw] : String.valueOf(letters[cw]) + c[index]);</span>
+
+                    // Letters in the pos direction
+<span class="pc bpc" id="L168" title="2 of 8 branches missed.">                    for (int cw = j + newIncrement; cw &lt; letters.length &amp;&amp; isLoop(!col, j, cw) &amp;&amp; isLetter(cw); cw += newIncrement)</span>
+<span class="fc bfc" id="L169" title="All 2 branches covered.">                        sb.append(sb.length() != 0 ? letters[cw] : String.valueOf(c[index]) + letters[cw]);</span>
+
+                    // Validate word
+<span class="pc bpc" id="L172" title="1 of 4 branches missed.">                    if (sb.length() &gt; 0 &amp;&amp; !AnagramService.isWord(sb.toString().toLowerCase())) break exit;</span>
+
+<span class="fc" id="L174">                    index++;</span>
+                }
+<span class="fc" id="L176">                wl = new WordAndLocation();</span>
+<span class="fc" id="L177">                wl.location = start;</span>
+<span class="fc" id="L178">                wl.word = word;</span>
+<span class="fc" id="L179">                list.add(wl);</span>
+            }
+<span class="fc" id="L181">        }</span>
+<span class="fc" id="L182">        return list;</span>
+    }
+
+    private static void finalizeMove(WordAndLocation wl, int increment){
+<span class="fc" id="L186">        int counter = 0;</span>
+        // Word being played
+<span class="fc" id="L188">        char[] c = wl.word.toCharArray();</span>
+<span class="fc bfc" id="L189" title="All 2 branches covered.">        for (int i = wl.location; counter &lt; c.length; i += increment) {</span>
+<span class="fc" id="L190">            letters[i] = c[counter];</span>
+<span class="fc" id="L191">            counter++;</span>
+        }
+<span class="fc" id="L193">        board.setLetters(letters);</span>
+<span class="fc" id="L194">    }</span>
+
+    // todo adjust fireball aim
+    private static void shootFireBall(){
+<span class="fc" id="L198">        int target = rand.nextInt(BOARD_SIZE * BOARD_SIZE);</span>
+<span class="pc bpc" id="L199" title="1 of 4 branches missed.">        while (isLetter(target) || letters[target] == '*')</span>
+<span class="fc" id="L200">            target = rand.nextInt(BOARD_SIZE * BOARD_SIZE);</span>
+<span class="fc" id="L201">        letters[target] = '*';</span>
+<span class="fc" id="L202">        board.setLetters(letters);</span>
+<span class="fc" id="L203">    }</span>
+
+    private static boolean isLoop(boolean col, int start, int curr){
+<span class="fc bfc" id="L206" title="All 2 branches covered.">        if (col)</span>
+<span class="pc bpc" id="L207" title="2 of 4 branches missed.">            return curr &lt; BOARD_SIZE * BOARD_SIZE &amp;&amp; curr &gt;= 0;</span>
+<span class="pc bpc" id="L208" title="1 of 2 branches missed.">        return start / BOARD_SIZE == curr / BOARD_SIZE;</span>
+    }
+
+    private static boolean isLetter(int idx){
+<span class="fc" id="L212">        return String.valueOf(letters[idx]).matches(&quot;[A-Z]&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>

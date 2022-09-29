@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GameController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">wordsaway-servlet</a> &gt; <a href="index.source.html" class="el_package">com.revature.wordsaway.controllers</a> &gt; <span class="el_source">GameController.java</span></div><h1>GameController.java</h1><pre class="source lang-java linenums">package com.revature.wordsaway.controllers;
+
+import com.revature.wordsaway.dtos.requests.BoardRequest;
+import com.revature.wordsaway.dtos.requests.GameRequest;
+import com.revature.wordsaway.dtos.responses.GameResponse;
+import com.revature.wordsaway.dtos.responses.OpponentResponse;
+import com.revature.wordsaway.models.Board;
+import com.revature.wordsaway.models.User;
+import com.revature.wordsaway.services.AIService;
+import com.revature.wordsaway.services.BoardService;
+import com.revature.wordsaway.services.TokenService;
+import com.revature.wordsaway.services.UserService;
+import com.revature.wordsaway.utils.customExceptions.ForbiddenException;
+import com.revature.wordsaway.utils.customExceptions.InvalidRequestException;
+import com.revature.wordsaway.utils.customExceptions.NetworkException;
+import org.springframework.data.repository.query.Param;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+@RestController
+@RequestMapping
+<span class="nc" id="L32">public class GameController {</span>
+<span class="nc" id="L33">    private final ConcurrentHashMap&lt;UUID, SseEmitter&gt; subscribedBoards = new ConcurrentHashMap&lt;&gt;(); </span>
+    
+    @CrossOrigin
+    @PostMapping(value = &quot;/makeGame&quot;, consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(value = HttpStatus.CREATED)
+    public @ResponseBody String makeGame(@RequestBody GameRequest request, HttpServletResponse resp, HttpServletRequest req) {
+        try {
+<span class="nc" id="L40">            User user = TokenService.extractRequesterDetails(req);</span>
+<span class="nc" id="L41">            User opponent = UserService.getByUsername(request.getUsername());</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">            if(user.getUsername().equals(opponent.getUsername())) throw new InvalidRequestException(&quot;You can not challenge yourself to a game. Nice try though.&quot;);</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">            for(OpponentResponse o : UserService.getAllOpponents(user.getUsername())){</span>
+<span class="nc bnc" id="L44" title="All 4 branches missed.">                if(o.getUsername().equals(opponent.getUsername()) &amp;&amp; o.getBoard_id() != null)</span>
+<span class="nc" id="L45">                    throw new InvalidRequestException(&quot;Can not start another match with &quot;+ opponent.getUsername() + &quot;. Finish existing game first.&quot;);</span>
+<span class="nc" id="L46">            }</span>
+<span class="nc" id="L47">            UUID uuid = UUID.randomUUID();</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">            BoardService.register(opponent, uuid, !opponent.isCPU());</span>
+<span class="nc" id="L49">            Board board = BoardService.register(user, uuid, opponent.isCPU());</span>
+<span class="nc" id="L50">            return board.getId().toString();</span>
+<span class="nc" id="L51">        }catch (NetworkException e){</span>
+<span class="nc" id="L52">            resp.setStatus(e.getStatusCode());</span>
+<span class="nc" id="L53">            return e.getMessage();</span>
+        }
+    }
+
+    @CrossOrigin
+    @GetMapping(value = &quot;/getGame&quot;, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody GameResponse getGame(@Param(&quot;id&quot;) String id, HttpServletResponse resp, HttpServletRequest req) {
+        try {
+<span class="nc" id="L61">            User user = TokenService.extractRequesterDetails(req);</span>
+<span class="nc" id="L62">            UUID uuid = UUID.fromString(id);</span>
+<span class="nc" id="L63">            Board board = BoardService.getByID(uuid);</span>
+<span class="nc" id="L64">            Board opposingBoard = BoardService.getOpposingBoard(board);</span>
+<span class="nc bnc" id="L65" title="All 4 branches missed.">            if(opposingBoard.getUser().isCPU() &amp;&amp; opposingBoard.isActive()) cpuMakeMove(board, opposingBoard);</span>
+<span class="nc" id="L66">            return BoardService.getGame(uuid);</span>
+<span class="nc" id="L67">        }catch (NetworkException e) {</span>
+<span class="nc" id="L68">            resp.setStatus(e.getStatusCode());</span>
+<span class="nc" id="L69">            System.out.println(e.getMessage());</span>
+<span class="nc" id="L70">            return null;</span>
+<span class="nc" id="L71">        }catch (NullPointerException | IllegalArgumentException e) {</span>
+<span class="nc" id="L72">            resp.setStatus(400);</span>
+<span class="nc" id="L73">            System.out.println(e.getMessage());</span>
+<span class="nc" id="L74">            return null;</span>
+        }
+    }
+
+    // TODO give users the option to place their own worms
+    /*
+    @CrossOrigin
+    @PostMapping(value = &quot;/placeWorms&quot;, consumes = &quot;application/json&quot;)
+    public String placeWorms(@RequestBody BoardRequest request, HttpServletRequest httpServletRequest, HttpServletResponse resp) {
+        try {
+            User user = TokenService.extractRequesterDetails(httpServletRequest);
+            Board board = BoardService.getByID(request.getBoardID());
+            Board opposingBoard = BoardService.getOpposingBoard(board);
+            User opponent = opposingBoard.getUser();
+            //if (opponent.isCPU()) new AIService(opposingBoard).setWorms();
+            //else board.setWorms(request.getLayout());
+            board.setWorms(request.getLayout());
+            BoardService.update(board);
+            return &quot;Worms placed.&quot;;
+        }catch (NetworkException e){
+            resp.setStatus(e.getStatusCode());
+            return e.getMessage();
+        }
+    }
+     */
+
+    @CrossOrigin
+    @PostMapping(value = &quot;/checkMove&quot;, consumes = &quot;application/json&quot;)
+    public boolean checkMove(@RequestBody BoardRequest request, HttpServletRequest req, HttpServletResponse resp) {
+        try {
+<span class="nc" id="L104">            TokenService.extractRequesterDetails(req);</span>
+<span class="nc" id="L105">            BoardService.validateMove(request);</span>
+<span class="nc" id="L106">            return true;</span>
+<span class="nc" id="L107">        }catch (NetworkException e){</span>
+<span class="nc" id="L108">            resp.setStatus(e.getStatusCode());</span>
+<span class="nc" id="L109">            System.out.println(e.getMessage());</span>
+<span class="nc" id="L110">            return false;</span>
+        }
+    }
+
+    @CrossOrigin
+    @PostMapping(value = &quot;/makeMove&quot;, consumes = &quot;application/json&quot;)
+    public String makeMove(@RequestBody BoardRequest request, HttpServletRequest req, HttpServletResponse resp) {
+        try {
+<span class="nc" id="L118">            User user = TokenService.extractRequesterDetails(req);</span>
+<span class="nc" id="L119">            Board board = BoardService.getByID(request.getBoardID());</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            if(!board.isActive()) throw new ForbiddenException(&quot;Can not make move on board when it is not your turn.&quot;);</span>
+<span class="nc" id="L121">            BoardService.makeMove(request, board);</span>
+<span class="nc" id="L122">            Board opposingBoard = BoardService.getOpposingBoard(board);</span>
+<span class="nc" id="L123">            User opponent = opposingBoard.getUser();</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">            if (BoardService.gameOver(request.getBoardID())){</span>
+<span class="nc" id="L125">                user.setELO(BoardService.calculateELO(user.getELO(), opponent.getELO(), true));</span>
+<span class="nc" id="L126">                user.setGamesPlayed(user.getGamesPlayed() + 1);</span>
+<span class="nc" id="L127">                user.setGamesWon(user.getGamesWon() + 1);</span>
+<span class="nc" id="L128">                UserService.update(user);</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">                if(!opponent.isCPU()) opponent.setELO(BoardService.calculateELO(opponent.getELO(), user.getELO(), false));</span>
+<span class="nc" id="L130">                opponent.setGamesPlayed(opponent.getGamesPlayed() + 1);</span>
+<span class="nc" id="L131">                UserService.update(opponent);</span>
+<span class="nc" id="L132">                return &quot;Winner!&quot;;</span>
+            }
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            if (opponent.isCPU()) cpuMakeMove(board, opposingBoard);</span>
+<span class="nc" id="L135">            SseEmitter emitter = subscribedBoards.get(opposingBoard.getId());</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">            if (emitter != null) {</span>
+<span class="nc" id="L137">                emitter.send(SseEmitter.event().name(&quot;active&quot;).data(&quot;active&quot;));</span>
+<span class="nc" id="L138">                emitter.complete();</span>
+<span class="nc" id="L139">                subscribedBoards.remove(opposingBoard.getId());</span>
+            }
+<span class="nc" id="L141">            return &quot;Move made.&quot;;</span>
+<span class="nc" id="L142">        }catch (NetworkException e){</span>
+<span class="nc" id="L143">            resp.setStatus(e.getStatusCode());</span>
+<span class="nc" id="L144">            System.out.println(e.getMessage());</span>
+<span class="nc" id="L145">            return e.getMessage();</span>
+<span class="nc" id="L146">        } catch (IOException e) {</span>
+<span class="nc" id="L147">            System.out.println(e.getMessage());</span>
+<span class="nc" id="L148">            return e.getMessage();</span>
+        }
+    }
+
+    private static void cpuMakeMove(Board board, Board opposingBoard){
+        try {
+<span class="nc" id="L154">            User user = board.getUser();</span>
+<span class="nc" id="L155">            User opponent = opposingBoard.getUser();</span>
+<span class="nc" id="L156">            Board botBoard = AIService.start(System.currentTimeMillis(), opposingBoard.clone());</span>
+<span class="nc" id="L157">            BoardRequest request = new BoardRequest();</span>
+<span class="nc" id="L158">            request.setBoardID(opposingBoard.getId());</span>
+<span class="nc" id="L159">            request.setReplacedTray(Arrays.equals(opposingBoard.getLetters(), botBoard.getLetters()));</span>
+<span class="nc" id="L160">            request.setLayout(botBoard.getLetters());</span>
+<span class="nc" id="L161">            BoardService.makeMove(request, opposingBoard);</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">            if (BoardService.gameOver(opposingBoard.getId())) {</span>
+<span class="nc" id="L163">                user.setELO(BoardService.calculateELO(user.getELO(), opponent.getELO(), false));</span>
+<span class="nc" id="L164">                user.setGamesPlayed(user.getGamesPlayed() + 1);</span>
+<span class="nc" id="L165">                UserService.update(user);</span>
+<span class="nc" id="L166">                opponent.setGamesPlayed(opponent.getGamesPlayed() + 1);</span>
+<span class="nc" id="L167">                opponent.setGamesWon(opponent.getGamesWon() + 1);</span>
+<span class="nc" id="L168">                UserService.update(opponent);</span>
+            }
+<span class="nc" id="L170">        }catch (NetworkException e){</span>
+<span class="nc" id="L171">            board.toggleActive();</span>
+<span class="nc" id="L172">            opposingBoard.toggleActive();</span>
+<span class="nc" id="L173">            BoardService.update(board);</span>
+<span class="nc" id="L174">            BoardService.update(opposingBoard);</span>
+<span class="nc" id="L175">        }</span>
+<span class="nc" id="L176">    }</span>
+
+    @CrossOrigin
+    @GetMapping(value = &quot;/getOpponents&quot;, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody List&lt;OpponentResponse&gt; getOpponents(HttpServletRequest req, HttpServletResponse resp) {
+        try {
+<span class="nc" id="L182">            User user = TokenService.extractRequesterDetails(req);</span>
+<span class="nc" id="L183">            return UserService.getAllOpponents(user.getUsername());</span>
+<span class="nc" id="L184">        }catch(NetworkException e){</span>
+<span class="nc" id="L185">            resp.setStatus(e.getStatusCode());</span>
+<span class="nc" id="L186">            System.out.println(e.getMessage());</span>
+<span class="nc" id="L187">            return null;</span>
+        }
+    }
+    
+    @CrossOrigin
+    @GetMapping(value = &quot;/active&quot;)
+    public SseEmitter isActive(@RequestParam(&quot;board_id&quot;) String board_id) {
+<span class="nc" id="L194">        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);</span>
+<span class="nc" id="L195">        subscribedBoards.put(UUID.fromString(board_id), emitter);</span>
+<span class="nc" id="L196">        return emitter;</span>
+    }
+
+    @CrossOrigin
+    @PostMapping(value = &quot;/endGame&quot;, consumes = &quot;application/json&quot;)
+    public String endGame(@RequestBody BoardRequest request, HttpServletRequest req, HttpServletResponse resp) {
+        try {
+<span class="nc" id="L203">            User user = TokenService.extractRequesterDetails(req);</span>
+<span class="nc" id="L204">            Board board = BoardService.getByID(request.getBoardID());</span>
+<span class="nc" id="L205">            Board opposingBoard = BoardService.getOpposingBoard(board);</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">            if(!user.equals(board.getUser())) throw new InvalidRequestException(&quot;You can not end someone else's game.&quot;);</span>
+<span class="nc bnc" id="L207" title="All 4 branches missed.">            if(!board.isActive() &amp;&amp; !opposingBoard.getUser().isCPU())</span>
+<span class="nc" id="L208">                throw new InvalidRequestException(&quot;Only the losing player can end the game.&quot;);</span>
+<span class="nc bnc" id="L209" title="All 4 branches missed.">            if(!BoardService.gameOver(opposingBoard.getId()) &amp;&amp; !BoardService.gameOver(board.getId()))</span>
+<span class="nc" id="L210">                throw new InvalidRequestException(&quot;You can not end a game that is still in progress.&quot;);</span>
+            //TODO possibly allow for surrendering.
+<span class="nc" id="L212">            BoardService.endGame(board.getGameID());</span>
+<span class="nc" id="L213">            return &quot;Game Ended&quot;;</span>
+<span class="nc" id="L214">        }catch(NetworkException e){</span>
+<span class="nc" id="L215">            resp.setStatus(e.getStatusCode());</span>
+<span class="nc" id="L216">            System.out.println(e.getMessage());</span>
+<span class="nc" id="L217">            return e.getMessage();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>

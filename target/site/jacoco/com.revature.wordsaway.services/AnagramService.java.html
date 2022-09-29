@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnagramService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">wordsaway-servlet</a> &gt; <a href="index.source.html" class="el_package">com.revature.wordsaway.services</a> &gt; <span class="el_source">AnagramService.java</span></div><h1>AnagramService.java</h1><pre class="source lang-java linenums">package com.revature.wordsaway.services;
+
+import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
+import com.gargoylesoftware.htmlunit.WebClient;
+import com.gargoylesoftware.htmlunit.WebClientOptions;
+import com.gargoylesoftware.htmlunit.html.*;
+import com.revature.wordsaway.dtos.responses.AnagramResponse;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class AnagramService {
+<span class="fc" id="L18">    private static RestTemplate restTemplate = new RestTemplate();</span>
+<span class="fc" id="L19">    private static WebClient client = new WebClient();</span>
+
+<span class="fc" id="L21">    public AnagramService(RestTemplate restTemplate, WebClient client){</span>
+<span class="fc" id="L22">        AnagramService.restTemplate = restTemplate;</span>
+<span class="fc" id="L23">        AnagramService.client = client;</span>
+<span class="fc" id="L24">    }</span>
+
+    public static String getBest(String letters){
+        try {
+<span class="fc" id="L28">            return restTemplate.getForObject(&quot;http://www.anagramica.com/best/&quot; + letters, String.class);</span>
+<span class="fc" id="L29">        }catch (HttpClientErrorException e){</span>
+<span class="fc" id="L30">            return &quot;&quot;;</span>
+        }
+    }
+
+    public static String getAll(String letters){
+        try {
+<span class="fc" id="L36">            return restTemplate.getForObject(&quot;http://www.anagramica.com/all/&quot; + letters, String.class);</span>
+<span class="fc" id="L37">        }catch (HttpClientErrorException e){</span>
+<span class="fc" id="L38">            return &quot;&quot;;</span>
+        }
+    }
+
+    @ExceptionHandler(value = {IOException.class, FailingHttpStatusCodeException.class})
+    public static boolean isWord(String letters) {
+<span class="fc" id="L44">        StringBuilder pattern = new StringBuilder();</span>
+<span class="fc" id="L45">        setOptions();</span>
+
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        for (char c : letters.toCharArray())</span>
+<span class="fc" id="L48">            pattern.append(&quot;_&quot;);</span>
+
+<span class="fc" id="L50">        String pageURL = &quot;https://anagram-solver.io/words-for/&quot; + letters.toLowerCase() + &quot;/pattern/&quot; + pattern + &quot;/?dictionary=otcwl&quot;;</span>
+
+        try {
+            // Make request
+<span class="fc" id="L54">            HtmlPage page = client.getPage(pageURL);</span>
+
+            // Get all anagrams
+<span class="fc" id="L57">            List&lt;HtmlElement&gt; items = page.getByXPath(&quot;//div[@class='wordblock']/a&quot;);</span>
+
+<span class="fc bfc" id="L59" title="All 2 branches covered.">            for (HtmlElement item : items){</span>
+                // Save to a list
+<span class="fc" id="L61">                String word = item.asNormalizedText();</span>
+
+<span class="fc bfc" id="L63" title="All 2 branches covered.">                if (word.matches(letters)) return true;</span>
+<span class="fc" id="L64">            }</span>
+<span class="fc" id="L65">        } catch (IOException | FailingHttpStatusCodeException e){</span>
+<span class="fc" id="L66">            return false;</span>
+<span class="fc" id="L67">        }</span>
+<span class="fc" id="L68">        return false;</span>
+    }
+
+    @ExceptionHandler(value = {IOException.class, FailingHttpStatusCodeException.class})
+    public static List&lt;String&gt; getAllList(String letters, String pattern, int wordLength){
+<span class="fc" id="L73">        List&lt;String&gt; words = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L74">        setOptions();</span>
+
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">        String pageURL = !pattern.equals(&quot;&quot;)</span>
+                ? &quot;https://anagram-solver.io/words-for/&quot; + letters + &quot;/pattern/&quot; + pattern + &quot;/?dictionary=otcwl&quot;
+                : &quot;https://anagram-solver.io/words-for/&quot; + letters + &quot;/pattern/___/?dictionary=otcwl&quot;;
+
+        try {
+            // Make request
+<span class="fc" id="L82">            HtmlPage page = client.getPage(pageURL);</span>
+
+            // Get all anagrams
+<span class="fc" id="L85">            List&lt;HtmlElement&gt; items = page.getByXPath(&quot;//div[@class='wordblock']/a&quot;);</span>
+
+<span class="fc bfc" id="L87" title="All 2 branches covered.">            for (HtmlElement item : items){</span>
+                // Save to a list
+<span class="fc" id="L89">                String word = item.asNormalizedText().toUpperCase();</span>
+
+<span class="pc bpc" id="L91" title="1 of 2 branches missed.">                if (word.length() == 2) break;</span>
+
+                // Check if it's the pattern
+<span class="fc bfc" id="L94" title="All 2 branches covered.">                if (!word.equals(pattern.replace(&quot;_&quot;, &quot;&quot;)))</span>
+                    // Skip if length of word is greater than what we want
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">                    if (word.length() &lt;= wordLength)</span>
+<span class="fc" id="L97">                        words.add(word);</span>
+<span class="fc" id="L98">            }</span>
+<span class="fc" id="L99">        } catch (IOException | FailingHttpStatusCodeException e){</span>
+<span class="fc" id="L100">            return null;</span>
+<span class="fc" id="L101">        }</span>
+<span class="fc" id="L102">        return words;</span>
+    }
+
+    private static void setOptions() {
+        try{
+<span class="nc" id="L107">            client.getOptions().setCssEnabled(false);</span>
+<span class="nc" id="L108">            client.getOptions().setJavaScriptEnabled(false);</span>
+<span class="pc" id="L109">        } catch (NullPointerException ignored){}</span>
+<span class="fc" id="L110">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>
