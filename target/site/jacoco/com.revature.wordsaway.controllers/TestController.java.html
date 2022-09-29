@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TestController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">wordsaway-servlet</a> &gt; <a href="index.source.html" class="el_package">com.revature.wordsaway.controllers</a> &gt; <span class="el_source">TestController.java</span></div><h1>TestController.java</h1><pre class="source lang-java linenums">package com.revature.wordsaway.controllers;
+
+import com.revature.wordsaway.models.Board;
+import com.revature.wordsaway.models.User;
+import com.revature.wordsaway.services.BoardService;
+import com.revature.wordsaway.services.UserService;
+import com.revature.wordsaway.utils.customExceptions.NetworkException;
+import org.springframework.data.repository.query.Param;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import javax.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping(&quot;/test&quot;)
+<span class="nc" id="L20">public class TestController {</span>
+    //TODO delete this class at the end
+
+    @CrossOrigin
+    @GetMapping(value = &quot;/getAll&quot;, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody List&lt;User&gt; getAll() {
+<span class="nc" id="L26">        return UserService.getAll();</span>
+    }
+
+    @CrossOrigin
+    @PostMapping(value = &quot;/makeGame&quot;, produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(value = HttpStatus.CREATED)
+    public @ResponseBody String makeGame(HttpServletResponse resp) {
+        try {
+<span class="nc" id="L34">            List&lt;Board&gt; boards = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L35">            UUID uuid = UUID.randomUUID();</span>
+<span class="nc" id="L36">            boards.add(BoardService.register(UserService.getByUsername(&quot;RJamesRJ&quot;), uuid, true));</span>
+<span class="nc" id="L37">            boards.add(BoardService.register(UserService.getByUsername(&quot;Easy-Bot&quot;), uuid, false));</span>
+<span class="nc" id="L38">            return boards.toString();</span>
+<span class="nc" id="L39">        }catch (NetworkException e){</span>
+<span class="nc" id="L40">            resp.setStatus(e.getStatusCode());</span>
+<span class="nc" id="L41">            return e.getMessage();</span>
+        }
+    }
+
+    @CrossOrigin
+    @GetMapping(value = &quot;/getChecked&quot;, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody String getChecked(@Param(&quot;id&quot;) String id, HttpServletResponse resp) {
+        try {
+<span class="nc" id="L49">            return Arrays.toString(BoardService.getChecked(BoardService.getByID(UUID.fromString(id)).getLetters()));</span>
+<span class="nc" id="L50">        }catch (NetworkException e){</span>
+<span class="nc" id="L51">            resp.setStatus(e.getStatusCode());</span>
+<span class="nc" id="L52">            return e.getMessage();</span>
+        }
+    }
+
+    @CrossOrigin
+    @GetMapping(value = &quot;/gameOver&quot;, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody String gameOver(@Param(&quot;id&quot;) String id, HttpServletResponse resp) {
+        try {
+<span class="nc bnc" id="L60" title="All 2 branches missed.">            return BoardService.gameOver(UUID.fromString(id)) ? &quot;true&quot; : &quot;false&quot;;</span>
+<span class="nc" id="L61">        }catch (NetworkException e){</span>
+<span class="nc" id="L62">            resp.setStatus(e.getStatusCode());</span>
+<span class="nc" id="L63">            return e.getMessage();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>

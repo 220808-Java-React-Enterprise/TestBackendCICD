@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">wordsaway-servlet</a> &gt; <a href="index.source.html" class="el_package">com.revature.wordsaway.services</a> &gt; <span class="el_source">UserService.java</span></div><h1>UserService.java</h1><pre class="source lang-java linenums">package com.revature.wordsaway.services;
+
+import com.revature.wordsaway.dtos.requests.LoginRequest;
+import com.revature.wordsaway.dtos.requests.NewUserRequest;
+import com.revature.wordsaway.dtos.responses.OpponentResponse;
+import com.revature.wordsaway.models.Board;
+import com.revature.wordsaway.models.User;
+import com.revature.wordsaway.repositories.BoardRepository;
+import com.revature.wordsaway.repositories.UserRepository;
+import com.revature.wordsaway.utils.customExceptions.AuthenticationException;
+import com.revature.wordsaway.utils.customExceptions.InvalidRequestException;
+import com.revature.wordsaway.utils.customExceptions.ResourceConflictException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class UserService {
+    private static UserRepository userRepository;
+    private static BoardRepository boardRepository;
+
+    @Autowired
+<span class="fc" id="L25">    public UserService(UserRepository userRepository, BoardRepository boardRepository){</span>
+<span class="fc" id="L26">        this.userRepository = userRepository;</span>
+<span class="fc" id="L27">        this.boardRepository = boardRepository;</span>
+<span class="fc" id="L28">    }</span>
+
+    public static User register(NewUserRequest request){
+<span class="fc" id="L31">        validateUsername(request.getUsername());</span>
+        //validatePassword(request.getPassword());
+<span class="fc" id="L33">        checkAvailableUsername(request.getUsername());</span>
+<span class="pc bpc" id="L34" title="1 of 4 branches missed.">        if(request.getEmail() != null &amp;&amp; !request.getEmail().equals(&quot;&quot;)){</span>
+<span class="fc" id="L35">            validateEmail(request.getEmail());</span>
+<span class="fc" id="L36">            checkAvailableEmail(request.getEmail());</span>
+        }
+<span class="fc" id="L38">        float sum = 0;</span>
+<span class="fc" id="L39">        int total = 0;</span>
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">        for (User user : userRepository.findAll()) {</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">            if (!user.isCPU()) {</span>
+<span class="nc" id="L42">                sum += user.getELO();</span>
+<span class="nc" id="L43">                total++;</span>
+            }
+<span class="nc" id="L45">        }</span>
+<span class="fc" id="L46">        User user = new User(</span>
+<span class="fc" id="L47">                request.getUsername(),</span>
+<span class="fc" id="L48">                request.getPassword(),</span>
+<span class="fc" id="L49">                request.getSalt(),</span>
+<span class="pc bpc" id="L50" title="1 of 2 branches missed.">                request.getEmail(),</span>
+                total != 0 ? sum / total : 1000,
+                0,
+                0,
+                false
+        );
+<span class="fc" id="L56">        userRepository.save(user);</span>
+<span class="fc" id="L57">        return user;</span>
+    }
+
+    public static void update(User user){
+<span class="fc" id="L61">        userRepository.updateUser(user.getUsername(), user.getPassword(), user.getEmail(), user.getELO(), user.getGamesPlayed(), user.getGamesWon());</span>
+<span class="fc" id="L62">    }</span>
+
+    public static String login(LoginRequest request) throws AuthenticationException {
+<span class="fc" id="L65">        User user = userRepository.findUserByUsername(request.getUsername());</span>
+<span class="pc bpc" id="L66" title="1 of 4 branches missed.">        if (user != null &amp;&amp; user.getPassword().equals(request.getPassword()))</span>
+<span class="fc" id="L67">            return TokenService.generateToken(user.getUsername());</span>
+<span class="fc" id="L68">        throw new AuthenticationException(&quot;Login unsuccessful. Please check username and password.&quot;);</span>
+    }
+
+    public static User getByUsername(String username){
+<span class="fc" id="L72">        User user = userRepository.findUserByUsername(username);</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        if(user == null) throw new InvalidRequestException(&quot;No user with username &quot; + username + &quot; found.&quot;);</span>
+<span class="fc" id="L74">        return user;</span>
+    }
+
+    public static List&lt;User&gt; getAll() {
+<span class="fc" id="L78">        List&lt;User&gt; users = (List&lt;User&gt;) userRepository.findAll();</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        if(users.size() == 0) throw new InvalidRequestException(&quot;No users found.&quot;);</span>
+<span class="fc" id="L80">        return users;</span>
+    }
+
+    public static List&lt;OpponentResponse&gt; getAllOpponents(String username) {
+<span class="fc" id="L84">        List&lt;OpponentResponse&gt; results = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        for(User opponent : userRepository.findAllOtherUsers(username)){</span>
+<span class="fc" id="L86">            List&lt;Board&gt; boards = boardRepository.findBoardsByTwoUsernames(username, opponent.getUsername());</span>
+            UUID boardID;
+<span class="fc bfc" id="L88" title="All 2 branches covered.">            if(boards.size() &gt; 0){</span>
+<span class="pc bpc" id="L89" title="1 of 2 branches missed.">                if(boards.get(0).getUser().getUsername().equals(username)) boardID = boards.get(0).getId();</span>
+<span class="nc" id="L90">                else boardID = boards.get(1).getId();</span>
+<span class="fc" id="L91">            } else boardID = null;</span>
+<span class="fc" id="L92">            results.add(new OpponentResponse(opponent.getUsername(), opponent.getELO(), boardID));</span>
+<span class="fc" id="L93">        }</span>
+<span class="fc" id="L94">        return results;</span>
+    }
+
+    public static void validateUsername(String username) throws InvalidRequestException {
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        if(!username.matches(&quot;^[A-Za-z\\d]{3,15}$&quot;))</span>
+<span class="fc" id="L99">            throw new InvalidRequestException(&quot;Username must start with a letter and consist of between 3 and 15 alphanumeric characters.&quot;);</span>
+<span class="fc" id="L100">    }</span>
+
+    /* Now done client side
+    public static void validatePassword(String password) throws InvalidRequestException {
+        if(!password.matches(&quot;^[A-Za-z\\d@$!%*?&amp;]{5,30}$&quot;))
+            throw new InvalidRequestException(&quot;Password must be between 5 and 30 alphanumeric or special characters.&quot;);
+    }
+    */
+
+    public static void validateEmail(String email) throws InvalidRequestException {
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        if(!email.matches(&quot;^|[A-Za-z0-9][A-Za-z0-9!#$%&amp;'*+\\-/=?^_`{}|]{0,63}@[A-Za-z0-9.-]{1,253}\\.[A-Za-z]{2,24}$&quot;))</span>
+<span class="fc" id="L111">            throw new InvalidRequestException(&quot;Invalid Email Address.&quot;);</span>
+<span class="fc" id="L112">    }</span>
+
+    public static void checkAvailableUsername(String username) throws ResourceConflictException {
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        if (userRepository.findUserByUsername(username) != null){</span>
+<span class="fc" id="L116">            throw new ResourceConflictException(&quot;Username is already taken, please choose another.&quot;);</span>
+        }
+<span class="fc" id="L118">    }</span>
+
+    public static void checkAvailableEmail(String email) throws ResourceConflictException {
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        if (userRepository.findUserByEmail(email) != null){</span>
+<span class="fc" id="L122">            throw new ResourceConflictException(&quot;Email is already taken, please choose another.&quot;);</span>
+        }
+<span class="fc" id="L124">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>
