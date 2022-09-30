@@ -18,6 +18,11 @@ jobs:
           java-version: '8'
       - name: Build with Maven
         run: mvn -B package -DskipTests --file pom.xml
+      - uses: joutvhu/write-file@v1
+        with:
+          path: src/main/resources/application.properties
+          contents: ${{ secrets.APPLICATION_PROPERTIES }}
+          write_mode: overwrite
       - name: Upload JAR
         uses: actions/upload-artifact@v2
         with:
