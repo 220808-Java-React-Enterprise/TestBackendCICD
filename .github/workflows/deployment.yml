@@ -22,7 +22,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: artifact
-          path: target/TestBackendCICD-0.0.1-SNAPSHOT.jar   
+          path: target/wordsaway-servlet-0.0.1-SNAPSHOT.jar   
   deploy:
     needs: build
     name: Deploy
@@ -44,4 +44,4 @@ jobs:
           environment_name: Backendcicd-env
           version_label: ${{github.SHA}}
           region: us-east-1
-          deployment_package: TestBackendCICD-0.0.1-SNAPSHOT.jar    
+          deployment_package: wordsaway-servlet-0.0.1-SNAPSHOT.jar    
